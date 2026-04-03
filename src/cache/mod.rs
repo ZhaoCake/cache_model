@@ -1,14 +1,15 @@
 mod addr;
 mod line;
 
-pub use addr::{decode_address, AddressParts};
+pub use addr::{AddressParts, decode_address};
 pub use line::{CacheLine, LineData};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CacheConfig {
-    pub addr_width: u8,
-    pub cache_size: usize,
-    pub line_size: usize,
+    pub addr_width: u8,    // 地址宽度（单位：bit）
+    pub cache_size: usize, // cache 大小（单位：byte）
+    pub line_size: usize,  //   cache line 大小（单位：byte）
+                           // lines = cache_size / line_size
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,19 +48,60 @@ pub struct Cache {
 
 impl Cache {
     pub fn new(config: CacheConfig) -> Self {
-        // TODO: 初始化 Cache
-        let _ = config;
-        todo!("Cache::new not implemented");
+        let lines = vec![CacheLine::new(config.line_size); config.cache_size / config.line_size];
+        // vec!的实现会调用 CacheLine::new 来初始化每一行
+        // config.addr_width 目前未直接使用
+        Self { config, lines }
     }
 
     pub fn num_lines(&self) -> usize {
-        // TODO: 返回行数
-        todo!("Cache::num_lines not implemented");
+        self.lines.len()
     }
 
     pub fn access(&mut self, request: AccessRequest) -> AccessResponse {
-        // TODO: 访问流程（先只做 hit 通路）
-        let _ = request;
-        todo!("Cache::access not implemented");
+        match request.access_type {
+            AccessType::Read => self.read(request),
+            AccessType::Write => self.write(request),
+        }
+    }
+
+    fn read(&mut self, request: AccessRequest) -> AccessResponse {
+        let addr_parts = decode_address(request.addr, self.config.line_size, self.num_lines());
+        let line = &self.lines[addr_parts.index];
+        if line.is_hit(addr_parts.tag) {
+            AccessResponse {
+                status: AccessStatus::Hit,
+                rdata: line.read_u32(addr_parts.offset, request.rsize),
+                ready: true,
+            }
+        } else {
+            AccessResponse {
+                status: AccessStatus::Miss,
+                // 如果miss的话,ready为false,那么在请求端就应该继续等待收到这个数据,也就是面对false的情况.
+                rdata: 0,
+                ready: false,
+            }
+        }
+    }
+
+    fn write(&mut self, request: AccessRequest) -> AccessResponse {
+        let addr_parts = decode_address(request.addr, self.config.line_size, self.num_lines());
+        let line = &mut self.lines[addr_parts.index];
+        if line.is_hit(addr_parts.tag) {
+            line.write_u32(addr_parts.offset, request.wdata, request.wmask);
+            AccessResponse {
+                status: AccessStatus::Hit,
+                rdata: 0,
+                ready: true,
+            }
+        } else {
+            AccessResponse {
+                status: AccessStatus::Miss,
+                rdata: 0,
+                ready: false,
+            }
+        }
     }
 }
+
+
