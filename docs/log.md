@@ -33,6 +33,40 @@
 未命中的通路就需要一个获取内存的方案了。
 这里就采用一个 MockMemory 来模拟内存，先实现最简单的 line read 功能就行了。
 
+### 4/6 当天测试用例设计（明确预期）
+
+#### A. 命中通路（已完成）
+1) read_hit_returns_data
+	- 前置：line0.valid=1，tag=0，data=[1..16]
+	- 输入：addr=0, rsize=4
+	- 期望：Hit，rdata=0x04030201，ready=true
+
+2) read_hit_with_different_offset
+	- 前置：line0.valid=1，tag=0，data=[1..16]
+	- 输入：addr=4 (offset=4), rsize=4
+	- 期望：Hit，rdata=0x08070605，ready=true
+
+3) write_hit_updates_data
+	- 前置：line0.valid=1，tag=0，data=[1..16]
+	- 输入：addr=0, wdata=0xFFFFFFFF, wmask=0xF
+	- 期望：Hit，ready=true；随后读 addr=0 返回 0xFFFFFFFF
+
+4) write_hit_respects_wmask
+	- 前置：line0.valid=1，tag=0，data=[1..16]
+	- 输入：addr=0, wdata=0xFFFFFFFF, wmask=0x5(0101)
+	- 期望：Hit，ready=true；随后读 addr=0 返回 0x04FF02FF
+
+#### B. 读未命中（准备实现）
+5) read_miss_refill_then_hit
+	- 前置：cache 全部 valid=0；MockMemory 在 line_addr=0 处存 [1..16]
+	- 输入：addr=0, rsize=4
+	- 期望：第一次返回 Miss / ready=false；完成 refill 后再次访问 addr=0 返回 Hit 且 rdata=0x04030201
+
+6) read_miss_populates_line
+	- 前置：cache 全部 valid=0；MockMemory 在 line_addr=0 处存 [1..16]
+	- 输入：addr=0, rsize=4
+	- 期望：refill 后 line0.valid=1，tag=0，data=[1..16]
+
 
 ---
 
