@@ -1,8 +1,10 @@
 mod addr;
 mod line;
+mod memory;
 
 pub use addr::{AddressParts, decode_address};
 pub use line::{CacheLine, LineData};
+pub use memory::MockMemory;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CacheConfig {
@@ -44,14 +46,16 @@ pub struct AccessResponse {
 pub struct Cache {
     pub config: CacheConfig,
     pub lines: Vec<CacheLine>,
+    pub memory: MockMemory,
 }
 
 impl Cache {
     pub fn new(config: CacheConfig) -> Self {
         let lines = vec![CacheLine::new(config.line_size); config.cache_size / config.line_size];
+        let memory = MockMemory::new(config.line_size, config.cache_size * 4);
         // vec!的实现会调用 CacheLine::new 来初始化每一行
         // config.addr_width 目前未直接使用
-        Self { config, lines }
+        Self { config, lines, memory }
     }
 
     pub fn num_lines(&self) -> usize {
@@ -75,12 +79,12 @@ impl Cache {
                 ready: true,
             }
         } else {
-            AccessResponse {
-                status: AccessStatus::Miss,
-                // 如果miss的话,ready为false,那么在请求端就应该继续等待收到这个数据,也就是面对false的情况.
-                rdata: 0,
-                ready: false,
-            }
+            // TODO: miss 处理（read miss + refill）
+            // 1) 计算 line 对齐地址
+            // 2) memory.read_line
+            // 3) 填充 cache line
+            // 4) 重新完成本次读请求
+            AccessResponse { status: AccessStatus::Miss, rdata: 0, ready: false }
         }
     }
 
@@ -95,11 +99,8 @@ impl Cache {
                 ready: true,
             }
         } else {
-            AccessResponse {
-                status: AccessStatus::Miss,
-                rdata: 0,
-                ready: false,
-            }
+            // TODO: miss 处理（write-allocate）
+            AccessResponse { status: AccessStatus::Miss, rdata: 0, ready: false }
         }
     }
 }

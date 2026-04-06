@@ -1,5 +1,41 @@
 # 实现日志
 
+## TODO（总体）
+
+- [x] V1：命中通路（已完成）
+	- [x] 地址拆分（tag/index/offset）
+	- [x] CacheLine 读写/掩码/dirty
+	- [x] Cache::access 命中处理
+	- [x] hit 通路测试（4 条）
+- [ ] V1：读未命中（read miss + refill）
+	- [ ] 定义最小 miss 状态机接口/状态
+	- [ ] MockMemory（只支持 line read）
+	- [ ] 未命中：发起 line_read -> 装填 -> 重新完成请求
+	- [ ] 测试：冷启动读 miss、二次读 hit
+- [ ] V1：写未命中（write-allocate）
+	- [ ] 写 miss 触发 line_read
+	- [ ] 装填后合并写入并置 dirty
+	- [ ] 测试：写 miss 后读回
+- [ ] V1：脏块回写（writeback）
+	- [ ] victim 脏块回写到 MockMemory
+	- [ ] 测试：替换触发回写
+- [ ] V1：ready/stall 行为
+	- [ ] miss 期间 ready=0
+	- [ ] miss 完成后 ready=1
+	- [ ] 测试：ready 门控
+
+---
+
+4/6
+
+已经完成上述内容，下一步？
+做，读未命中的通路。
+未命中的通路就需要一个获取内存的方案了。
+这里就采用一个 MockMemory 来模拟内存，先实现最简单的 line read 功能就行了。
+
+
+---
+
 4/3
 
 完成guide。
@@ -63,4 +99,4 @@ read_word(line, offset, rsize) -> u32
 write_word(line, offset, wdata, wmask)
 这样你可以先给这些纯函数写单元测试，再拼总流程。
 
----
+
