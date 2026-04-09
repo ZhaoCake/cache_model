@@ -12,10 +12,10 @@
 	- [x] MockMemory（只支持 line read）
 	- [x] 未命中：发起 line_read -> 装填 -> 重新完成请求
 	- [x] 测试：冷启动读 miss、二次读 hit
-- [ ] V1：写未命中（write-allocate）
-	- [ ] 写 miss 触发 line_read
-	- [ ] 装填后合并写入并置 dirty
-	- [ ] 测试：写 miss 后读回
+- [x] V1：写未命中（write-allocate）
+	- [x] 写 miss 触发 line_read
+	- [x] 装填后合并写入并置 dirty
+	- [x] 测试：写 miss 后读回
 - [ ] V1：脏块回写（writeback）
 	- [ ] victim 脏块回写到 MockMemory
 	- [ ] 测试：替换触发回写
@@ -23,6 +23,32 @@
 	- [ ] miss 期间 ready=0
 	- [ ] miss 完成后 ready=1
 	- [ ] 测试：ready 门控
+
+---
+
+4/9
+
+完成 write miss 测试用例，并通过全量回归测试。
+
+C. 写未命中（已完成）
+7) write_miss_allocate_then_read_back
+	- 前置：cache 初始为空；MockMemory 在 line_addr=0 存 [1..16]
+	- 输入：第一次写 addr=0, wdata=0xFFFFFFFF, wmask=0xF；随后读 addr=0, rsize=4
+	- 期望：写请求当次返回 Miss/ready=false；后续读返回 Hit 且 rdata=0xFFFFFFFF
+
+8) write_miss_sets_dirty_and_tag
+	- 前置：cache 初始为空；MockMemory 在 line_addr=0 存 [1..16]
+	- 输入：写 addr=0, wdata=0x12345678, wmask=0xF
+	- 期望：写请求返回 Miss；line0.valid=true，line0.dirty=true，line0.tag=0
+
+9) write_miss_respects_wmask_after_allocate
+	- 前置：cache 初始为空；MockMemory 在 line_addr=0 存 [1..16]
+	- 输入：写 addr=0, wdata=0xFFFFFFFF, wmask=0x5；随后读 addr=0, rsize=4
+	- 期望：后续读返回 Hit 且 rdata=0x04FF02FF（只修改第0和第2字节）
+
+测试结果：
+- cargo test --test write_miss：3 passed
+- cargo test（全量）：全部通过
 
 ---
 

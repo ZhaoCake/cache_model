@@ -108,9 +108,18 @@ impl Cache {
         // 3) 从 memory 读取整行并 fill
         // 4) 对 refill 后的行执行 write_u32 并置 dirty
         // 5) 返回当前周期语义（本阶段保持 Miss + ready=false）
-        let _ = request;
-
-        self.writeback_if_dirty(addr_parts.index);
+        let needs_writeback = {
+            let line = &self.lines[addr_parts.index];
+            line.valid && line.dirty
+        };
+        if needs_writeback {
+            self.writeback_if_dirty(addr_parts.index);
+        }
+        let line_addr = (request.addr as usize / self.config.line_size) * self.config.line_size;
+        let line_data = self.memory.read_line(line_addr);
+        let line = &mut self.lines[addr_parts.index];
+        line.fill(addr_parts.tag, &line_data);
+        line.write_u32(addr_parts.offset, request.wdata, request.wmask);
 
         // 这里只搭框架，不实现写分配行为。
         AccessResponse {
@@ -126,7 +135,12 @@ impl Cache {
         //   1) 用 line.tag + index 还原 line_addr
         //   2) 调用 memory.write_line(line_addr, &line.data)
         //   3) 清 dirty 位（或在 fill 时清除）
-        let _ = index;
+        if self.lines[index].valid && self.lines[index].dirty {
+            let line_addr = (self.lines[index].tag as usize) * self.config.line_size * self.num_lines() + index * self.config.line_size;
+            self.memory.write_line(line_addr, &self.lines[index].data);
+            self.lines[index].dirty = false; // 回写后清除 dirty 位
+        }
+
     }
 }
 
