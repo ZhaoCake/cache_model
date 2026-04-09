@@ -97,9 +97,36 @@ impl Cache {
                 ready: true,
             }
         } else {
-            // TODO: miss 处理（write-allocate）
-            AccessResponse { status: AccessStatus::Miss, rdata: 0, ready: false }
+            self.handle_write_miss(request, addr_parts)
         }
+    }
+
+    fn handle_write_miss(&mut self, request: AccessRequest, addr_parts: AddressParts) -> AccessResponse {
+        // TODO: 写未命中框架（write-allocate）
+        // 1) 选择 victim（直接映射下就是 index 对应行）
+        // 2) 若 victim 脏，则先 writeback_if_dirty
+        // 3) 从 memory 读取整行并 fill
+        // 4) 对 refill 后的行执行 write_u32 并置 dirty
+        // 5) 返回当前周期语义（本阶段保持 Miss + ready=false）
+        let _ = request;
+
+        self.writeback_if_dirty(addr_parts.index);
+
+        // 这里只搭框架，不实现写分配行为。
+        AccessResponse {
+            status: AccessStatus::Miss,
+            rdata: 0,
+            ready: false,
+        }
+    }
+
+    fn writeback_if_dirty(&mut self, index: usize) {
+        // TODO: 脏块回写框架
+        // - 如果 lines[index].valid && lines[index].dirty：
+        //   1) 用 line.tag + index 还原 line_addr
+        //   2) 调用 memory.write_line(line_addr, &line.data)
+        //   3) 清 dirty 位（或在 fill 时清除）
+        let _ = index;
     }
 }
 
