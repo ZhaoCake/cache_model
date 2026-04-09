@@ -7,11 +7,11 @@
 	- [x] CacheLine 读写/掩码/dirty
 	- [x] Cache::access 命中处理
 	- [x] hit 通路测试（4 条）
-- [ ] V1：读未命中（read miss + refill）
-	- [ ] 定义最小 miss 状态机接口/状态
-	- [ ] MockMemory（只支持 line read）
-	- [ ] 未命中：发起 line_read -> 装填 -> 重新完成请求
-	- [ ] 测试：冷启动读 miss、二次读 hit
+- [x] V1：读未命中（read miss + refill）
+	- [x] 定义最小 miss 状态机接口/状态
+	- [x] MockMemory（只支持 line read）
+	- [x] 未命中：发起 line_read -> 装填 -> 重新完成请求
+	- [x] 测试：冷启动读 miss、二次读 hit
 - [ ] V1：写未命中（write-allocate）
 	- [ ] 写 miss 触发 line_read
 	- [ ] 装填后合并写入并置 dirty
@@ -33,9 +33,7 @@
 未命中的通路就需要一个获取内存的方案了。
 这里就采用一个 MockMemory 来模拟内存，先实现最简单的 line read 功能就行了。
 
-### 4/6 当天测试用例设计（明确预期）
-
-#### A. 命中通路（已完成）
+ A. 命中通路（已完成）
 1) read_hit_returns_data
 	- 前置：line0.valid=1，tag=0，data=[1..16]
 	- 输入：addr=0, rsize=4
@@ -56,7 +54,7 @@
 	- 输入：addr=0, wdata=0xFFFFFFFF, wmask=0x5(0101)
 	- 期望：Hit，ready=true；随后读 addr=0 返回 0x04FF02FF
 
-#### B. 读未命中（准备实现）
+B. 读未命中（准备实现）
 5) read_miss_refill_then_hit
 	- 前置：cache 全部 valid=0；MockMemory 在 line_addr=0 处存 [1..16]
 	- 输入：addr=0, rsize=4

@@ -71,19 +71,17 @@ impl Cache {
 
     fn read(&mut self, request: AccessRequest) -> AccessResponse {
         let addr_parts = decode_address(request.addr, self.config.line_size, self.num_lines());
-        let line = &self.lines[addr_parts.index];
-        if line.is_hit(addr_parts.tag) {
+        if self.lines[addr_parts.index].is_hit(addr_parts.tag) {
             AccessResponse {
                 status: AccessStatus::Hit,
-                rdata: line.read_u32(addr_parts.offset, request.rsize),
+                rdata: self.lines[addr_parts.index].read_u32(addr_parts.offset, request.rsize),
                 ready: true,
             }
         } else {
-            // TODO: miss 处理（read miss + refill）
-            // 1) 计算 line 对齐地址
-            // 2) memory.read_line
-            // 3) 填充 cache line
-            // 4) 重新完成本次读请求
+            // 最小读 miss 框架：本次返回 Miss，同时完成 refill，下一次访问命中。
+            let line_addr = (request.addr as usize / self.config.line_size) * self.config.line_size;
+            let line_data = self.memory.read_line(line_addr);
+            self.lines[addr_parts.index].fill(addr_parts.tag, &line_data);
             AccessResponse { status: AccessStatus::Miss, rdata: 0, ready: false }
         }
     }

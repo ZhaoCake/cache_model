@@ -13,14 +13,19 @@ impl MockMemory {
     }
 
     pub fn read_line(&self, line_addr: usize) -> Vec<u8> {
-        // TODO: 按 line_addr 读取一整行
-        let _ = line_addr;
-        todo!("MockMemory::read_line not implemented");
+        if line_addr + self.line_size > self.data.len() {
+            panic!("read_line out of bounds: line_addr={line_addr}, line_size={}", self.line_size);
+        }
+        self.data[line_addr..line_addr + self.line_size].to_vec()
     }
 
     pub fn write_line(&mut self, line_addr: usize, line_data: &[u8]) {
-        // TODO: 按 line_addr 写回一整行
-        let _ = (line_addr, line_data);
-        todo!("MockMemory::write_line not implemented");
+        if line_addr + self.line_size > self.data.len() {
+            panic!("write_line out of bounds: line_addr={line_addr}, line_size={}", self.line_size);
+        }
+        if line_data.len() != self.line_size {
+            panic!("write_line data size mismatch: expected {}, got {}", self.line_size, line_data.len());
+        }
+        self.data[line_addr..line_addr + self.line_size].copy_from_slice(line_data);
     }
 }
