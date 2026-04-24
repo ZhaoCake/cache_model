@@ -78,7 +78,17 @@ impl Cache {
                 ready: true,
             }
         } else {
-            // 最小读 miss 框架：本次返回 Miss，同时完成 refill，下一次访问命中。
+            // 读 miss 路径：
+            // 1) 先检查 victim（当前 index 对应行）是否脏，若脏则回写到 memory
+            // 2) 从 memory 读取目标行数据并 fill 进 cache line
+            // 3) 返回 Miss + ready=false（数据下个周期才可用）
+            let needs_writeback = {
+                let line = &self.lines[addr_parts.index];
+                line.valid && line.dirty
+            };
+            if needs_writeback {
+                self.writeback_if_dirty(addr_parts.index);
+            }
             let line_addr = (request.addr as usize / self.config.line_size) * self.config.line_size;
             let line_data = self.memory.read_line(line_addr);
             self.lines[addr_parts.index].fill(addr_parts.tag, &line_data);
@@ -102,12 +112,12 @@ impl Cache {
     }
 
     fn handle_write_miss(&mut self, request: AccessRequest, addr_parts: AddressParts) -> AccessResponse {
-        // TODO: 写未命中框架（write-allocate）
-        // 1) 选择 victim（直接映射下就是 index 对应行）
-        // 2) 若 victim 脏，则先 writeback_if_dirty
-        // 3) 从 memory 读取整行并 fill
-        // 4) 对 refill 后的行执行 write_u32 并置 dirty
-        // 5) 返回当前周期语义（本阶段保持 Miss + ready=false）
+        // 写 miss 处理流程（write-allocate 策略）：
+        // 1) 选择 victim：直接映射下，index 对应行就是唯一候选
+        // 2) 若 victim 有效且脏，先回写（writeback_if_dirty）
+        // 3) 从 memory 读取目标行数据并 fill 进 cache line
+        // 4) 对 fill 后的行执行 write_u32（自动置 dirty）
+        // 5) 返回 Miss + ready=false
         let needs_writeback = {
             let line = &self.lines[addr_parts.index];
             line.valid && line.dirty
@@ -121,7 +131,6 @@ impl Cache {
         line.fill(addr_parts.tag, &line_data);
         line.write_u32(addr_parts.offset, request.wdata, request.wmask);
 
-        // 这里只搭框架，不实现写分配行为。
         AccessResponse {
             status: AccessStatus::Miss,
             rdata: 0,
@@ -130,17 +139,18 @@ impl Cache {
     }
 
     fn writeback_if_dirty(&mut self, index: usize) {
-        // TODO: 脏块回写框架
-        // - 如果 lines[index].valid && lines[index].dirty：
-        //   1) 用 line.tag + index 还原 line_addr
-        //   2) 调用 memory.write_line(line_addr, &line.data)
-        //   3) 清 dirty 位（或在 fill 时清除）
+        // 脏块回写：将 cache line 中被修改过的数据写回下一级存储
+        // 条件：line 必须同时 valid 且 dirty，才需要回写
+        // 步骤：
+        //   1) 用 tag + index 还原该行在 memory 中的起始地址（line_addr）
+        //      公式：line_addr = tag × (line_size × num_lines) + index × line_size
+        //   2) 调用 memory.write_line 将整行数据写入
+        //   3) 清除 dirty 标志（数据已与 memory 一致）
         if self.lines[index].valid && self.lines[index].dirty {
             let line_addr = (self.lines[index].tag as usize) * self.config.line_size * self.num_lines() + index * self.config.line_size;
             self.memory.write_line(line_addr, &self.lines[index].data);
-            self.lines[index].dirty = false; // 回写后清除 dirty 位
+            self.lines[index].dirty = false; // 回写后清除 dirty 位，数据已与 memory 一致
         }
-
     }
 }
 
